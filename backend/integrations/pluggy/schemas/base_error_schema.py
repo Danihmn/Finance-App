@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 class BaseErrorSchema(BaseModel):
     code: int
-    code_description: Annotated[str, Field(alias="codeDescription")]
     message: str
-    data: str | None = None
+    code_description: Annotated[
+        str | None, Field(alias="codeDescription")
+    ]  # Distinctive code description, useful to distinguish the error.
+    data: str | None = None  # Additional data related to the error, if any

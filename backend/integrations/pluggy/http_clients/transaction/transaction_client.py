@@ -1,32 +1,16 @@
 from datetime import datetime
 
 import httpx
+from config import base_url
 
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
 from integrations.pluggy.schemas.base_error_schema import BaseErrorSchema
-from integrations.pluggy.schemas.base_response_schema import BaseResponseSchema
-from integrations.pluggy.schemas.transaction_response_schema import (
+from integrations.pluggy.schemas.base_response_schema import (
+    BaseResponseV2Schema,
+)
+from integrations.pluggy.schemas.transaction.transaction_response_schema import (
     TransactionResponseSchema,
 )
-
-base_url = "https://api.pluggy.ai"
-
-
-def authenticate(client_id, client_secret) -> str:
-    """Returns an apiKey string, or raises PluggyError if status_code is not 200"""
-    response = httpx.post(
-        f"{base_url}/auth", json={"clientId": client_id, "clientSecret": client_secret}
-    )
-    if response.is_error:
-        try:
-            error = BaseErrorSchema.model_validate(response.json())
-        except ValueError:
-            response.raise_for_status()
-            raise
-
-        raise PluggyExceptionError(error)
-
-    return response.json()["apiKey"]
 
 
 def get_all_transactions(
@@ -37,11 +21,12 @@ def get_all_transactions(
     date_to: str | datetime | None = None,
     created_at_from: str | datetime | None = None,
     after: str | None = None,
-) -> BaseResponseSchema:
+) -> BaseResponseV2Schema:
     """
     Get the transactions of an account.
 
     Parameters:
+        api_key: The authorization API Key
         account_id: Primary ID of the account (UUID). Required.
         ids: List of transaction IDs (UUIDs). Maximum of 500 IDs per request.
         date_from: Only return transactions with a date on or after this date.
@@ -67,7 +52,7 @@ def get_all_transactions(
     }  # Ignore None values
 
     response = httpx.get(
-        f"{base_url}/transactions",
+        f"{base_url}/v2/transactions",
         params=params,
         headers={"X-API-KEY": api_key},
     )
@@ -80,7 +65,9 @@ def get_all_transactions(
 
         raise PluggyExceptionError(error)
 
-    return BaseResponseSchema[TransactionResponseSchema].model_validate(response.json())
+    return BaseResponseV2Schema[TransactionResponseSchema].model_validate(
+        response.json()
+    )
 
 
 def _to_str(value: str | datetime | None) -> str | None:
