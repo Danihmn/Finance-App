@@ -2,10 +2,12 @@ from datetime import datetime
 
 import httpx
 
-from integrations.exceptions.pluggy_exception_error import PluggyExceptionError
-from integrations.schemas.base_error_schema import BaseErrorSchema
-from integrations.schemas.base_response_schema import BaseResponseSchema
-from integrations.schemas.transaction_response_schema import TransactionResponseSchema
+from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
+from integrations.pluggy.schemas.base_error_schema import BaseErrorSchema
+from integrations.pluggy.schemas.base_response_schema import BaseResponseSchema
+from integrations.pluggy.schemas.transaction_response_schema import (
+    TransactionResponseSchema,
+)
 
 base_url = "https://api.pluggy.ai"
 
@@ -60,7 +62,9 @@ def get_all_transactions(
         "createdAtFrom": _to_str(created_at_from),
         "after": after,
     }
-    params = {k: v for k, v in params.items() if v is not None}  # Ignore None values
+    params = {
+        key: value for key, value in params.items() if value is not None
+    }  # Ignore None values
 
     response = httpx.get(
         f"{base_url}/transactions",

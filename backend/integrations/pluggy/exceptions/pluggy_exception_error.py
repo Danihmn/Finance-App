@@ -1,4 +1,4 @@
-from integrations.schemas.base_error_schema import BaseErrorSchema
+from integrations.pluggy.schemas.base_error_schema import BaseErrorSchema
 
 
 class PluggyExceptionError(Exception):
