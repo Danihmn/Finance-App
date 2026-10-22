@@ -20,25 +20,52 @@ Use case: private use by two people (two different CPFs). Not a public product f
 | Mobile app | Flutter |
 | Bank data | Pluggy, free "Meu Pluggy" plan (Open Finance) |
 
-## 3. Pluggy documentation access (MCP): use it first
+Pluggy code lives in `backend/integrations/pluggy/` (`http_clients/`, `schemas/`, `exceptions/`, `config.py`).
 
-This project uses the **Pluggy Docs MCP server** (`pluggy-docs`). It gives live access to the official Pluggy docs: guides, API reference (OpenAPI), changelog, recipes, and support Q&A. No API key is needed.
+## 3. Database schema
 
-**Rules for the agent:**
+The schema is designed in DrawSQL and exported to `backend/`:
+
+- `backend/finance-app-schema.md`: **source of truth for the agent.** Read this file before writing models, migrations, or queries, or answering questions about tables and columns.
+- `backend/finance-app-schema.webp`: image of the same diagram, for humans. Do not use it instead of the `.md`.
+
+Rules:
+1. If the code and the `.md` disagree, tell me which one looks right. Do not silently pick one.
+2. When you suggest schema changes, follow the patch format described at the bottom of `finance-app-schema.md`, so I can apply them in DrawSQL. After I update the diagram, I re-export the `.md`.
+3. Money columns use `numeric`, never `float`/`double precision`. In Python, use `Decimal`.
+
+## 4. Pluggy documentation access (MCP): use it first
+
+This project uses the **Pluggy Docs MCP server**. It gives live access to the official Pluggy docs: guides, API reference (OpenAPI), changelog, recipes, and support Q&A. No API key is needed.
+
+Rules for the agent:
 1. Before answering any question about Pluggy, or writing any code that calls the Pluggy API, **search the MCP first**. Do not rely on memory. The API and the dashboard can change.
 2. Useful tools: `search_docs`, `get_guide`, `list_guides`, `search_endpoints`, `get_api_endpoint`, `search_changelog`, `search_qa`, `search_recipes`.
-3. Key guides: `guides/meu-pluggy-personal-use` and `guides/dashboard-connectors`.
+3. Key guides: `guides/meu-pluggy-personal-use`, `guides/dashboard-connectors`, `connections/consents`.
 4. If the MCP is not available, read the public docs at https://docs.pluggy.ai (a full index is at `/llms.txt`) and tell me that the MCP was not used.
 5. If the official docs disagree with this file, **the docs win**. Tell me, and suggest an update to this file.
 6. Always say which guide or endpoint the answer came from.
+7. For response shapes, trust the OpenAPI spec (`get_api_endpoint`), not the JSON `example` on the docs pages. Examples are often outdated and much smaller than the real response.
 
-## 4. Bank integration: what we learned
+## 5. Bank integration
 
-### 4.1 Direct integration with the banks is not an option
+### 5.1 Why Pluggy
 - Using Open Finance directly requires being an institution authorized by the Central Bank. Not possible for a personal project.
-- The banks' developer APIs (statement, Pix, billing) are for business (PJ) accounts, with contracts and certificates. Too much work for personal accounts.
+- The banks' developer APIs (statement, Pix, billing) are for business (PJ) accounts, with contracts and certificates.
+- Pluggy is an aggregator: one integration model for all banks, for personal accounts.
 
-### 4.2 Use an aggregator: Pluggy
-- Pluggy covers through Open Finance (accounts, transactions, credit cards), for personal and business.
-- One integration model for all banks. The user authorizes in the bank's own app or site (Open Finance consent).
-- The consent has an expiration date. As far as I know, it is up to 12 months. The app must warn when a connection is about to expire. (Not confirmed in the docs. Check it.)
+### 5.2 How Meu Pluggy works (confirmed in the docs)
+- Each person has their own Meu Pluggy account and their own Pluggy application (Client ID + Client Secret). Authenticate **per user** (`POST /auth` returns an `apiKey`).
+- Banks are connected in the Meu Pluggy site. Connecting through the **MeuPluggy** connector in the Dashboard is one authorization, and each connected bank becomes one **item** (`itemId`).
+- `GET /v2/items` is not available for Meu Pluggy accounts, so we store each `itemId` ourselves. Accounts and transactions are read per item (`/accounts?itemId=`, `/transactions?accountId=`).
+- Personal use only, up to 5 connections. Meu Pluggy refreshes every 24 hours, and items cannot be refreshed manually.
+
+### 5.3 Consent expiration
+- The MeuPluggy authorization lasts **1 year**. The date is `consentExpiresAt` on `GET /items/{id}`. It applies to all of that user's items.
+- After it expires, accounts and transactions return **empty**, and the next refresh fails with `LOGIN_ERROR` / `USER_AUTHORIZATION_EXPIRED` (webhook `item/error`). The item may still show `UPDATED` until then, so an empty read with a past `consentExpiresAt` means "expired", not "no data".
+- Renewing means doing the MeuPluggy login again in the Dashboard. A refresh by API cannot renew it.
+- The app must warn before the date.
+
+### 5.4 Data we keep
+- Re-authorizing can change the `itemId`. Our tables use our own UUID primary keys, and Pluggy ids are separate unique columns. Transactions are reconciled by our own ids, not by assuming the item id is stable.
+- We store transactions locally: after the consent expires, the API returns nothing, and the AI features need the history.

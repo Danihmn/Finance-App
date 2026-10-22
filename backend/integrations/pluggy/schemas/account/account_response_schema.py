@@ -15,6 +15,22 @@ class AccountResponseSchemaBankData(BaseModel):
         populate_by_name = True
 
 
+class AccountResponseSchemaCreditData(BaseModel):
+    level: str
+    brand: str
+    balance_close_date: str = Field(..., alias="balanceCloseDate")
+    balance_due_date: str = Field(..., alias="balanceDueDate")
+    available_credit_limit: int = Field(..., alias="availableCreditLimit")
+    balance_foreign_currency: int = Field(..., alias="balanceForeignCurrency")
+    minimum_payment: int = Field(..., alias="minimumPayment")
+    credit_limit: int = Field(..., alias="creditLimit")
+    status: str
+    holder_type: str = Field(..., alias="holderType")
+
+    class Config:
+        populate_by_name = True
+
+
 class AccountResponseSchema(BaseModel):
     id: str
     created_at: str = Field(..., alias="createdAt")
@@ -30,6 +46,7 @@ class AccountResponseSchema(BaseModel):
     owner: str
     currency_code: str = Field(..., alias="currencyCode")
     bank_data: AccountResponseSchemaBankData = Field(..., alias="bankData")
+    creditData: AccountResponseSchemaCreditData = Field(..., alias="creditData")
 
     class Config:
         populate_by_name = True
