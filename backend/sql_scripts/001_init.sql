@@ -2,10 +2,6 @@
 -- Initial schema. Source of truth for the database (see CLAUDE.md, section 3).
 -- Do not edit after it has been applied anywhere with data you care about:
 -- new changes go in a new numbered script.
---
--- Pluggy hierarchy: users (Pluggy credentials) -> pluggy_items (one per bank
--- connected through Meu Pluggy) -> bank_accounts -> transactions.
--- Pluggy ids are separate unique columns; our own uuid is always the PK.
 
 -- ---------------------------------------------------------------- users
 CREATE TABLE users
@@ -13,8 +9,9 @@ CREATE TABLE users
     id                          uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
     first_name                  text        NOT NULL,
     email                       text        NOT NULL UNIQUE,
+    hashed_password             text        NOT NULL,
     pluggy_client_id            uuid        NOT NULL,
-    pluggy_client_secret_crypto text        NOT NULL, -- encrypted by the app, never plain text
+    pluggy_client_secret_crypto text        NOT NULL,
     created_at                  timestamptz NOT NULL DEFAULT now()
 );
 
@@ -24,9 +21,8 @@ CREATE TABLE pluggy_items
     id                 uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
     user_id            uuid        NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
     pluggy_item_id     uuid        NOT NULL UNIQUE,
-    connector_name     text        NOT NULL, -- likely always 'MeuPluggy'; confirm against GET /items/{id}
-    consent_expires_at timestamptz,          -- null until first read of the item
-    last_synced_at     timestamptz,          -- null until first successful sync
+    consent_expires_at timestamptz,
+    last_synced_at     timestamptz,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz
 );
@@ -132,32 +128,8 @@ CREATE TABLE transactions
     provider_code         text,
     status                text           NOT NULL CHECK (status IN ('POSTED', 'PENDING')),
     type                  text           NOT NULL CHECK (type IN ('DEBIT', 'CREDIT')),
-    sheet_posted_at       timestamptz,                    -- null = not yet posted to the spreadsheet
     created_at            timestamptz    NOT NULL DEFAULT now(),
     updated_at            timestamptz
 );
 
 CREATE INDEX idx_transactions_account_date ON transactions (bank_account_id, date DESC);
-CREATE INDEX idx_transactions_pending_sheet ON transactions (id) WHERE sheet_posted_at IS NULL;
-
--- ------------------------------------------------------------ sync_logs
--- One row per scheduled sync run, per Pluggy item. Inserted as 'running' at the
--- start and updated at the end: a row stuck in 'running' means the job died.
-CREATE TABLE sync_logs
-(
-    id                    uuid PRIMARY KEY     DEFAULT gen_random_uuid(),
-    pluggy_item_id        uuid        NOT NULL REFERENCES pluggy_items (id) ON DELETE RESTRICT,
-    started_at            timestamptz NOT NULL DEFAULT now(),
-    finished_at           timestamptz,
-    status                text        NOT NULL DEFAULT 'running'
-        CHECK (status IN ('running', 'success', 'partial', 'failed')),
-    transactions_fetched  integer     NOT NULL DEFAULT 0,
-    transactions_inserted integer     NOT NULL DEFAULT 0,
-    transactions_skipped  integer     NOT NULL DEFAULT 0,
-    failed_step           text CHECK (failed_step IN ('fetch', 'persist', 'sheet')),
-    error_code            text,
-    error_message         text,
-    details               jsonb
-);
-
-CREATE INDEX idx_sync_logs_item_started ON sync_logs (pluggy_item_id, started_at DESC);
