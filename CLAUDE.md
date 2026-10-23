@@ -24,14 +24,15 @@ Pluggy code lives in `backend/integrations/pluggy/` (`http_clients/`, `schemas/`
 
 ## 3. Database schema
 
-The schema is designed in DrawSQL and exported to `backend/`:
+The project is **database first**. The source of truth is the versioned SQL scripts in `backend/sql_scripts/`, numbered in order (`001_init.sql`, `002_...sql`). The SQLAlchemy models are generated from the database (with `sqlacodegen`), never written by hand.
 
-- `backend/finance-app-schema.md`: **source of truth for the agent.** Read this file before writing models, migrations, or queries, or answering questions about tables and columns.
-- `backend/finance-app-schema.webp`: image of the same diagram, for humans. Do not use it instead of the `.md`.
+- `backend/sql_scripts/`: **source of truth.** Read the scripts, in order, before writing queries or code that touches tables, or answering questions about tables and columns. A change to the schema is a new script. Do not edit a script that was already applied.
+- Generated models: do not edit them by hand, they are overwritten on each generation. Extra logic goes in separate modules.
+- `backend/finance-app-schema.md` and `backend/finance-app-schema.webp`: export of the DrawSQL diagram. **Only a sketch for humans.** It can be outdated or differ from the scripts. Do not use them as the reference for the real schema.
 
 Rules:
-1. If the code and the `.md` disagree, tell me which one looks right. Do not silently pick one.
-2. When you suggest schema changes, follow the patch format described at the bottom of `finance-app-schema.md`, so I can apply them in DrawSQL. After I update the diagram, I re-export the `.md`.
+1. If the code, the DrawSQL export and the scripts disagree, the scripts win. Tell me about the difference, and do not silently pick one.
+2. When you suggest schema changes, write them as a new SQL script in `backend/sql_scripts/`. Do not produce a DrawSQL patch unless I ask for one.
 3. Money columns use `numeric`, never `float`/`double precision`. In Python, use `Decimal`.
 
 ## 4. Pluggy documentation access (MCP): use it first

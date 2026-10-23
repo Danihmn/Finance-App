@@ -7,14 +7,14 @@ Columns are NOT NULL unless marked nullable.
 id: uuid PK
 first_name: varchar
 email: varchar unique
-client_id: uuid
-client_secret_crypto: text
+pluggy_client_id: uuid
+pluggy_client_secret_crypto: text
 created_at: timestamptz
 
-## pluggy_applications
+## pluggy_items
 id: uuid PK
 user_id: uuid FK
-pluggy_item_id: uuid
+pluggy_item_id: uuid unique
 connector_name: varchar
 consent_expires_at: timestamptz
 last_synced_at: timestamptz
@@ -25,8 +25,7 @@ updated_at: timestamptz nullable
 id: uuid PK
 type: text
 subtype: text
-item_id: uuid
-pluggy_application_id: uuid FK unique
+pluggy_item_id: uuid FK
 created_at: timestamptz
 updated_at: timestamptz nullable
 currency_code: varchar
@@ -35,6 +34,7 @@ name: text
 marketing_name: text
 number: varchar
 owner: text
+pluggy_account_id: uuid unique
 
 ## credit_datas
 id: uuid PK
@@ -63,7 +63,6 @@ unarranged_overdraft_amount: double precision
 ## identity_datas
 id: bigint PK
 bank_account_id: uuid FK
-item_id: uuid
 document: text
 birth_date: timestamptz
 document_type: varchar
@@ -97,10 +96,11 @@ category: varchar nullable
 provider_code: varchar nullable
 status: varchar
 type: varchar
+pluggy_transaction_id: uuid unique
 
 ## Relationships
-pluggy_applications.user_id → users.id (many-to-one)
-bank_accounts.pluggy_application_id → pluggy_applications.id (many-to-one)
+pluggy_items.user_id → users.id (many-to-one)
+bank_accounts.pluggy_item_id → pluggy_items.id (many-to-one)
 credit_datas.bank_account_id → bank_accounts.id (one-to-one)
 bank_datas.bank_account_id → bank_accounts.id (one-to-one)
 identity_datas.bank_account_id → bank_accounts.id (one-to-one)
