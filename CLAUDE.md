@@ -27,12 +27,18 @@ Pluggy code lives in `backend/integrations/pluggy/` (`http_clients/`, `schemas/`
 The project is **database first**. The source of truth is the versioned SQL scripts in `backend/sql_scripts/`, numbered in order (`001_init.sql`, `002_...sql`). The SQLAlchemy models are generated from the database (with `sqlacodegen`), never written by hand.
 
 - `backend/sql_scripts/`: **source of truth.** Read the scripts, in order, before writing queries or code that touches tables, or answering questions about tables and columns. A change to the schema is a new script. Do not edit a script that was already applied.
-- Generated models: do not edit them by hand, they are overwritten on each generation. Extra logic goes in separate modules.
-- `backend/finance-app-schema.md` and `backend/finance-app-schema.webp`: export of the DrawSQL diagram. **Only a sketch for humans.** It can be outdated or differ from the scripts. Do not use them as the reference for the real schema.
+- Generated models: `backend/infra/database/models.py`. Do not edit them by hand, they are overwritten on each generation. Extra logic goes in separate modules. The session is in `backend/infra/database/session.py` and the settings in `backend/settings.py`.
+- There is no diagram or Markdown export of the schema anymore (the DrawSQL files were deleted). Do not recreate them.
+
+Current shape (only for orientation; the scripts win):
+- `users` -> `pluggy_items` (one per connected bank; `label`, `status`, `execution_status`, `error_code`, `consent_expires_at`) -> `bank_accounts` (has `balance`) -> `transactions`.
+- `bank_datas` and `credit_datas` are 1:1 with `bank_accounts`.
+- `identity_datas` is 1:1 with `pluggy_items` (not per account). `addresses` belong to `identity_datas` through `identity_data_id` (1:N).
+- `transactions` keeps the raw Pluggy fields (`description_raw`, `category_id`, `operation_type`, `amount_in_account_currency`) and `jsonb` columns (`payment_data`, `credit_card_metadata`, `merchant`). `provider_id` is the second key to match a PENDING transaction with its POSTED version.
 
 Rules:
-1. If the code, the DrawSQL export and the scripts disagree, the scripts win. Tell me about the difference, and do not silently pick one.
-2. When you suggest schema changes, write them as a new SQL script in `backend/sql_scripts/`. Do not produce a DrawSQL patch unless I ask for one.
+1. If the code and the scripts disagree, the scripts win. Tell me about the difference, and do not silently pick one.
+2. When you suggest schema changes, write them as a new SQL script in `backend/sql_scripts/`.
 3. Money columns use `numeric`, never `float`/`double precision`. In Python, use `Decimal`.
 
 ## 4. Pluggy documentation access (MCP): use it first
