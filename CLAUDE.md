@@ -30,11 +30,7 @@ The project is **database first**. The source of truth is the versioned SQL scri
 - Generated models: `backend/infra/database/models.py`. Do not edit them by hand, they are overwritten on each generation. Extra logic goes in separate modules. The session is in `backend/infra/database/session.py` and the settings in `backend/settings.py`.
 - There is no diagram or Markdown export of the schema anymore (the DrawSQL files were deleted). Do not recreate them.
 
-Current shape (only for orientation; the scripts win):
-- `users` -> `pluggy_items` (one per connected bank; `label`, `status`, `execution_status`, `error_code`, `consent_expires_at`) -> `bank_accounts` (has `balance`) -> `transactions`.
-- `bank_datas` and `credit_datas` are 1:1 with `bank_accounts`.
-- `identity_datas` is 1:1 with `pluggy_items` (not per account). `addresses` belong to `identity_datas` through `identity_data_id` (1:N).
-- `transactions` keeps the raw Pluggy fields (`description_raw`, `category_id`, `operation_type`, `amount_in_account_currency`) and `jsonb` columns (`payment_data`, `credit_card_metadata`, `merchant`). `provider_id` is the second key to match a PENDING transaction with its POSTED version.
+The schema (tables, columns, relations, constraints) is defined only by the SQL scripts and the generated models. This file does not keep a summary of it, so it cannot go out of date. For questions about tables and columns, read `backend/sql_scripts/` (in order) and `backend/infra/database/models.py`.
 
 Rules:
 1. If the code and the scripts disagree, the scripts win. Tell me about the difference, and do not silently pick one.
