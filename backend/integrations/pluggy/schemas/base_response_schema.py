@@ -6,13 +6,14 @@ class BaseResponseV2Schema[T](BaseModel):
     BaseResponseV2Schema (only for list responses)
 
     results: The V2 response content
-    next: The Pluggy's pagination approach next item, to pass as parameter in next requests
+    next: The Pluggy's pagination approach next item, to pass as parameter in next requests.
+          None means this is the last page
 
     Just pass to next request the exactly 'next' received
     """
 
     results: list[T]
-    next: str
+    next: str | None = None
 
 
 class BaseResponseV1Schema[T](BaseModel):

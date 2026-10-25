@@ -20,7 +20,7 @@ def get_all_transactions(
     date_from: str | datetime | None = None,
     date_to: str | datetime | None = None,
     created_at_from: str | datetime | None = None,
-    after: str | None = None,
+    next: str | None = None,
 ) -> BaseResponseV2Schema:
     """
     Get the transactions of an account.
@@ -35,9 +35,9 @@ def get_all_transactions(
             Format: yyyy-mm-dd.
         created_at_from: Only return transactions created on or after this date.
             Format: yyyy-mm-ddThh:mm:ss.000Z.
-        after: Cursor for the next page of results. Use only the decoded
-            `after` value from the `next` URL of the previous response,
-            never the full `next` string.
+        after: Cursor for the next page of results. Ready-to-use
+        query string for the next page: append it as-is to
+        the endpoint path (GET /v2/transactions{next}). Null if there are no more results..
     """
     params = {
         "accountId": account_id,
@@ -45,14 +45,13 @@ def get_all_transactions(
         "dateFrom": _to_str(date_from),
         "dateTo": _to_str(date_to),
         "createdAtFrom": _to_str(created_at_from),
-        "after": after,
     }
     params = {
         key: value for key, value in params.items() if value is not None
     }  # Ignore None values
 
     response = httpx.get(
-        f"{base_url}/v2/transactions",
+        f"{base_url}/v2/transactions{next if next else ''}",
         params=params,
         headers={"X-API-KEY": api_key},
     )
