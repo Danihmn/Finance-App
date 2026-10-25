@@ -58,3 +58,20 @@ def upsert_transactions(
         session, [to_values(t) for t in transactions]
     )
     return [to_entity(Transaction, t) for t in saved]
+
+
+@translate_repository_errors
+def list_transactions_since(
+    session: Session, bank_account_id: uuid.UUID, date_from: datetime.datetime
+) -> list[Transaction]:
+    transactions = transactions_repository.list_transactions_since(
+        session, bank_account_id, date_from
+    )
+    return [to_entity(Transaction, t) for t in transactions]
+
+
+@translate_repository_errors
+def update_transactions(session: Session, transactions: list[Transaction]) -> None:
+    transactions_repository.update_transactions(
+        session, [to_values(t) for t in transactions]
+    )

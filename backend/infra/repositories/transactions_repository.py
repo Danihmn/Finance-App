@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,9 @@ from infra.repositories.exceptions import RecordNotFoundError, translate_db_erro
 
 # Columns never overwritten when the transaction already exists.
 _KEEP_ON_CONFLICT = {"id", "created_at", "pluggy_transaction_id", "bank_account_id"}
+
+# Rows per INSERT statement: keeps well under Postgres' 65535 bind parameters limit.
+_UPSERT_CHUNK_SIZE = 500
 
 
 @translate_db_errors("transactions")
@@ -60,9 +63,24 @@ def list_transactions_by_account(
     if date_to is not None:
         stmt = stmt.where(Transactions.date < date_to)
     stmt = (
-        stmt.order_by(Transactions.date.desc(), Transactions.id)
+        stmt
+        .order_by(Transactions.date.desc(), Transactions.id)
         .limit(limit)
         .offset(offset)
+    )
+    return list(session.scalars(stmt).all())
+
+
+@translate_db_errors("transactions")
+def list_transactions_since(
+    session: Session, bank_account_id: uuid.UUID, date_from: datetime.datetime
+) -> list[Transactions]:
+    """Every transaction of the account with date >= date_from (no pagination)."""
+    stmt = (
+        select(Transactions)
+        .where(Transactions.bank_account_id == bank_account_id)
+        .where(Transactions.date >= date_from)
+        .order_by(Transactions.date, Transactions.id)
     )
     return list(session.scalars(stmt).all())
 
@@ -71,18 +89,37 @@ def list_transactions_by_account(
 def upsert_transactions(
     session: Session, values_list: list[dict[str, Any]]
 ) -> list[Transactions]:
-    """Insert or update by pluggy_transaction_id. Each dict uses Transactions column names."""
+    """Insert or update by pluggy_transaction_id. Each dict uses Transactions column names.
+
+    Sent in chunks of _UPSERT_CHUNK_SIZE rows. All dicts must have the same keys.
+    """
+    saved: list[Transactions] = []
+    for start in range(0, len(values_list), _UPSERT_CHUNK_SIZE):
+        chunk = values_list[start : start + _UPSERT_CHUNK_SIZE]
+        stmt = insert(Transactions).values(chunk)
+        update_values = {
+            key: stmt.excluded[key] for key in chunk[0] if key not in _KEEP_ON_CONFLICT
+        }
+        update_values["updated_at"] = func.now()  # type: ignore
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["pluggy_transaction_id"], set_=update_values
+        ).returning(Transactions)
+        saved.extend(
+            session.scalars(stmt, execution_options={"populate_existing": True}).all()
+        )
+    return saved
+
+
+@translate_db_errors("transactions")
+def update_transactions(session: Session, values_list: list[dict[str, Any]]) -> None:
+    """Bulk UPDATE by primary key. Each dict must have the row's `id`.
+
+    Used when pluggy_transaction_id itself changes, which the upsert cannot do.
+    """
     if not values_list:
-        return []
-    stmt = insert(Transactions).values(values_list)
-    update_values = {
-        key: stmt.excluded[key]
-        for key in values_list[0]
-        if key not in _KEEP_ON_CONFLICT
-    }
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["pluggy_transaction_id"], set_=update_values
-    ).returning(Transactions)
-    return list(
-        session.scalars(stmt, execution_options={"populate_existing": True}).all()
+        return
+    now = datetime.datetime.now(datetime.UTC)
+    session.execute(
+        update(Transactions),
+        [{**values, "updated_at": now} for values in values_list],
     )
