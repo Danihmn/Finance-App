@@ -25,7 +25,9 @@ def get_pluggy_item_by_pluggy_item_id(
 
 
 @translate_db_errors("pluggy_items")
-def list_pluggy_items_by_user(session: Session, user_id: uuid.UUID) -> list[PluggyItems]:
+def list_pluggy_items_by_user(
+    session: Session, user_id: uuid.UUID
+) -> list[PluggyItems]:
     stmt = (
         select(PluggyItems)
         .where(PluggyItems.user_id == user_id)
@@ -74,6 +76,6 @@ def update_pluggy_item_sync_info(
     item = get_pluggy_item_by_id(session, item_id)
     item.last_synced_at = last_synced_at
     item.consent_expires_at = consent_expires_at
-    item.updated_at = datetime.datetime.now(datetime.timezone.utc)
+    item.updated_at = datetime.datetime.now(datetime.UTC)
     session.flush()
     return item

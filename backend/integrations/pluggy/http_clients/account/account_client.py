@@ -2,6 +2,9 @@ import httpx
 from config import base_url
 
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
+from integrations.pluggy.schemas.account.account_response_schema import (
+    AccountResponseSchema,
+)
 from integrations.pluggy.schemas.account.balance_response_schema import (
     BalanceResponseSchema,
 )
@@ -42,9 +45,7 @@ def get_all_accounts(api_key: str, item_id: str, type: str) -> BaseResponseV1Sch
 
         raise PluggyExceptionError(error)
 
-    return BaseResponseV1Schema[TransactionResponseSchema].model_validate(
-        response.json()
-    )
+    return BaseResponseV1Schema[AccountResponseSchema].model_validate(response.json())
 
 
 def get_real_time_balance(api_key: str, id: str) -> BalanceResponseSchema:
