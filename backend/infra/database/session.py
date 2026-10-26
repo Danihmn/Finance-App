@@ -11,6 +11,19 @@ Session = sessionmaker(bind=engine, autoflush=False)
 
 @contextmanager
 def get_session():
+    """For scripts and other features that don't use FastAPI's Depends(...)"""
+    with Session() as session:
+        try:
+            yield session
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+
+def get_db():
+    """Use it for FastAPI's Depends(...)"""
     with Session() as session:
         try:
             yield session
