@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from domain.entities import User
 from infra.database.session import get_db
-from presentation.dependencies import require_admin_key
 from presentation.schemas.user_schemas import UserCreate, UserResponse
 from services.encryption_service import encrypt
 from services.password_hash_service import get_password_hash
+from services.token_service import get_current_user
 from services.users_service import create_user
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/users", tags=["users"])
     "",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_admin_key)],
+    dependencies=[Depends(get_current_user)],
 )
 def create_user_endpoint(
     body: UserCreate, session: Annotated[Session, Depends(get_db)]
