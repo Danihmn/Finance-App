@@ -22,6 +22,7 @@ from services.bank_accounts_service import (
     get_bank_account_by_pluggy_account_id,
     upsert_bank_account,
 )
+from services.encryption_service import decrypt
 from services.exceptions import ServiceError
 from services.pluggy_items_service import list_pluggy_items_by_user
 from services.transactions_sync_service import (
@@ -71,7 +72,7 @@ def _sync_user_transactions(session: Session, user: User) -> None:
 
     api_key = authenticate(
         client_id=user.pluggy_client_id,
-        client_secret=user.pluggy_client_secret_crypto,
+        client_secret=decrypt(user.pluggy_client_secret_crypto),
     )
     pluggy_items = list_pluggy_items_by_user(session, user.id)
 

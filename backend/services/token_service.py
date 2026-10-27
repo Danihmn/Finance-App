@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 
 from domain.entities.user import User
 from infra.database.session import get_db
+from services.exceptions import NotFoundError
 from services.users_service import get_user_by_id
 from settings import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
 class Token(BaseModel):
@@ -58,7 +59,7 @@ def get_current_user(
         token_data = TokenData(user_id=user_id)
     except jwt.InvalidTokenError, ValueError:
         raise credentials_exception
-    user = get_user_by_id(session, token_data.user_id)
-    if user is None:
+    try:
+        return get_user_by_id(session, token_data.user_id)
+    except NotFoundError:
         raise credentials_exception
-    return user
