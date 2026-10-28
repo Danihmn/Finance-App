@@ -1,13 +1,11 @@
 import logging
 from datetime import UTC, date, datetime, time
-from decimal import Decimal
-from uuid import UUID
 
 import httpx
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
-from domain.entities import BankAccount, PluggyItem, Transaction, User
+from domain.entities import Transaction, User
 from infra.database.session import get_session
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
 from integrations.pluggy.http_clients.account.account_client import get_all_accounts
@@ -15,13 +13,7 @@ from integrations.pluggy.http_clients.auth.auth_client import authenticate
 from integrations.pluggy.http_clients.transaction.transaction_client import (
     get_all_transactions,
 )
-from integrations.pluggy.schemas.account.account_response_schema import (
-    AccountResponseSchema,
-)
-from services.bank_accounts_service import (
-    get_bank_account_by_pluggy_account_id,
-    upsert_bank_account,
-)
+from services.bank_accounts_sync_service import sync_bank_account
 from services.encryption_service import decrypt
 from services.exceptions import ServiceError
 from services.pluggy_items_service import list_pluggy_items_by_user
@@ -36,36 +28,6 @@ logger = logging.getLogger(__name__)
 _USERS_PAGE_SIZE = 20
 
 
-def _get_or_create_bank_account(
-    session: Session, item: PluggyItem, account: AccountResponseSchema
-) -> BankAccount:
-    """Return the stored bank account, creating it from the Pluggy account if missing."""
-    pluggy_account_id = UUID(account.id)
-    stored_account = get_bank_account_by_pluggy_account_id(session, pluggy_account_id)
-    if stored_account:
-        return stored_account
-
-    if item.id is None:
-        raise ValueError("Pluggy item without id")
-
-    return upsert_bank_account(
-        session,
-        BankAccount(
-            pluggy_item_id=item.id,  # Our own pluggy_items id, not Pluggy's item id
-            pluggy_account_id=pluggy_account_id,
-            type=account.type,
-            subtype=account.subtype,
-            name=account.name,
-            number=account.number,
-            currency_code=account.currency_code,
-            marketing_name=account.marketing_name,
-            tax_number=account.tax_number,
-            owner=account.owner,
-            balance=Decimal(str(account.balance)),
-        ),
-    )
-
-
 def _sync_user_transactions(session: Session, user: User) -> None:
     if user.id is None:
         raise ValueError("User without id")
@@ -78,9 +40,14 @@ def _sync_user_transactions(session: Session, user: User) -> None:
 
     for item in pluggy_items:
         try:
-            bank_accounts = get_all_accounts(api_key, str(item.pluggy_item_id), "BANK")
-            for account in bank_accounts.results:
-                stored_account = _get_or_create_bank_account(session, item, account)
+            if item.id is None:
+                raise ValueError("Pluggy item without id")
+
+            # Both BANK and CREDIT accounts: the transactions logic is the same
+            accounts = get_all_accounts(api_key, str(item.pluggy_item_id))
+            for account in accounts.results:
+                # Our own pluggy_items id, not Pluggy's item id
+                stored_account, _ = sync_bank_account(session, item.id, account)
                 if stored_account.id is None:
                     raise ValueError("Bank account without id")
 

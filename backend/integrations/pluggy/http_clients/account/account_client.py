@@ -17,14 +17,16 @@ from integrations.pluggy.schemas.transaction.transaction_response_schema import 
 )
 
 
-def get_all_accounts(api_key: str, item_id: str, type: str) -> BaseResponseV1Schema:
+def get_all_accounts(
+    api_key: str, item_id: str, type: str | None = None
+) -> BaseResponseV1Schema:
     """
     Gets all the accounts for the given 'item_id'
 
     Parameters:
             api_key: The authorization API Key
             item_id: Primary item's identifier.
-            type: Filter between bank accounts and credit accounts (must be 'BANK' or 'CREDIT')
+            type: Filter between bank accounts and credit accounts ('BANK' or 'CREDIT'). None returns both
     """
     params = {"itemId": item_id, "type": type}
     params = {
