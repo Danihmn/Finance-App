@@ -1,6 +1,6 @@
 import httpx
-from config import base_url
 
+from integrations.pluggy.config import base_url
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
 from integrations.pluggy.schemas.account.account_response_schema import (
     AccountResponseSchema,

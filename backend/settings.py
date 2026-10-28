@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str
     access_token_expire_minutes: int
     encryption_key: str
-    admin_api_key: str
 
 
 settings = Settings()  # type: ignore

@@ -1,8 +1,8 @@
 from datetime import datetime
 
 import httpx
-from config import base_url
 
+from integrations.pluggy.config import base_url
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
 from integrations.pluggy.schemas.base_error_schema import BaseErrorSchema
 from integrations.pluggy.schemas.base_response_schema import (
