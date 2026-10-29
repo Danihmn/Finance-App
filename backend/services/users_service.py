@@ -20,6 +20,12 @@ def get_user_by_email(session: Session, email: str) -> User | None:
 
 
 @translate_repository_errors
+def get_user_by_webhook_secret_hash(session: Session, secret_hash: str) -> User | None:
+    user = users_repository.get_user_by_pluggy_webhook_secret_hash(session, secret_hash)
+    return to_entity(User, user) if user else None
+
+
+@translate_repository_errors
 def list_users(session: Session, limit: int = 10, offset: int = 0) -> list[User]:
     users = users_repository.list_users(session, limit=limit, offset=offset)
     return [to_entity(User, u) for u in users]
@@ -36,3 +42,13 @@ def create_user(session: Session, user: User) -> User:
         pluggy_client_secret_crypto=user.pluggy_client_secret_crypto,
     )
     return to_entity(User, created)
+
+
+@translate_repository_errors
+def update_user_webhook_secret_hash(
+    session: Session, user_id: uuid.UUID, secret_hash: str
+) -> User:
+    user = users_repository.update_user_pluggy_webhook_secret_hash(
+        session, user_id, secret_hash
+    )
+    return to_entity(User, user)

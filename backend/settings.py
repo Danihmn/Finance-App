@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str
     access_token_expire_minutes: int
     encryption_key: str
+    # Public HTTPS base url Pluggy reaches this backend at (e.g. an ngrok url). Unset skips the webhook registration
+    public_base_url: str | None = None
 
 
 settings = Settings()  # type: ignore

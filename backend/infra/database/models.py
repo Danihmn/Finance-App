@@ -28,6 +28,9 @@ class Users(Base):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="users_pkey"),
         UniqueConstraint("email", name="users_email_key"),
+        UniqueConstraint(
+            "pluggy_webhook_secret_hash", name="users_pluggy_webhook_secret_hash_key"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -41,6 +44,7 @@ class Users(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(True), nullable=False, server_default=text("now()")
     )
+    pluggy_webhook_secret_hash: Mapped[str | None] = mapped_column(Text)
 
     pluggy_items: Mapped[list[PluggyItems]] = relationship(
         "PluggyItems", back_populates="user"

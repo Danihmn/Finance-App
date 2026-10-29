@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import UTC, date, datetime, time
 
 import httpx
@@ -21,7 +22,7 @@ from services.transactions_sync_service import (
     sync_account_transactions,
     to_transaction_entity,
 )
-from services.users_service import list_users
+from services.users_service import get_user_by_id, list_users
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,16 @@ def _sync_user_transactions(session: Session, user: User) -> None:
             )
 
 
+def _sync_and_commit_user(session: Session, user: User) -> None:
+    try:
+        _sync_user_transactions(session, user)
+        session.commit()
+    except ServiceError, PluggyExceptionError, httpx.HTTPError, ValueError:
+        # One user failing must not stop the others
+        session.rollback()
+        logger.exception("Transactions job failed for user %s", user.id)
+
+
 def launch_transactions():
     with get_session() as session:
         offset = 0
@@ -96,12 +107,18 @@ def launch_transactions():
                 break
 
             for user in users:
-                try:
-                    _sync_user_transactions(session, user)
-                    session.commit()
-                except ServiceError, PluggyExceptionError, httpx.HTTPError, ValueError:
-                    # One user failing must not stop the others
-                    session.rollback()
-                    logger.exception("Transactions job failed for user %s", user.id)
+                _sync_and_commit_user(session, user)
 
             offset += _USERS_PAGE_SIZE
+
+
+def launch_user_transactions(user_id: uuid.UUID) -> None:
+    """Syncs a single user. Opens its own session: it runs after the request's session is closed"""
+    with get_session() as session:
+        try:
+            user = get_user_by_id(session, user_id)
+        except ServiceError:
+            logger.exception("Transactions job could not load user %s", user_id)
+            return
+
+        _sync_and_commit_user(session, user)
