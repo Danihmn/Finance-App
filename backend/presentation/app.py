@@ -11,7 +11,7 @@ from presentation.webhooks.pluggy import item_webhooks
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await run_in_threadpool(register_webhooks)  # Never raises
+    await run_in_threadpool(register_webhooks)
     yield
 
 
