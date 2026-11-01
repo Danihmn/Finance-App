@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session
 
 from domain.entities import User
 from infra.database.session import get_db
+from infra.jobs.webhook_registration import register_webhooks
 from presentation.schemas.user_schemas import UserCreate, UserResponse
 from services.encryption_service import encrypt
 from services.password_hash_service import get_password_hash
@@ -21,7 +22,9 @@ router = APIRouter(prefix="/users", tags=["users"])
     dependencies=[Depends(get_current_user)],
 )
 def create_user_endpoint(
-    body: UserCreate, session: Annotated[Session, Depends(get_db)]
+    background_tasks: BackgroundTasks,
+    body: UserCreate,
+    session: Annotated[Session, Depends(get_db)],
 ) -> User:
     user = User(
         first_name=body.first_name,
@@ -32,4 +35,7 @@ def create_user_endpoint(
     )
     created = create_user(session, user)
     session.commit()
+    background_tasks.add_task(
+        register_webhooks
+    )  # After created user, it needs to register the user's application webhook
     return created  # Pydantic can serialize 'User' entity into 'UserResponse' schema

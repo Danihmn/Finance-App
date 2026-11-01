@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from domain.entities import User
 from integrations.pluggy.config import item_updated_webhook_path, webhook_token_header
 from integrations.pluggy.http_clients.auth.auth_client import authenticate
-from integrations.pluggy.http_clients.web_hook.webhook_client import (
+from integrations.pluggy.http_clients.webhook.webhook_client import (
     create_webhook,
     list_webhooks,
     update_webhook,
@@ -45,9 +45,9 @@ def ensure_item_updated_webhook(
 
     webhook = next(
         (
-            w
-            for w in list_webhooks(api_key).results
-            if w.event == ITEM_UPDATED_EVENT and w.url == url
+            pluggy_webhook
+            for pluggy_webhook in list_webhooks(api_key).results
+            if pluggy_webhook.event == ITEM_UPDATED_EVENT and pluggy_webhook.url == url
         ),
         None,
     )
