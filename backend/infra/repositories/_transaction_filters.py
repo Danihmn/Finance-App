@@ -1,14 +1,7 @@
-from sqlalchemy import Select, func, or_
+from sqlalchemy import Select, func
 
 from domain.read_models import TransactionFilters
 from infra.database.models import BankAccounts, PluggyItems, Transactions
-
-# Pluggy's `category` field is returned in English (see "Transaction Categorization" guide).
-# Categorization is a premium feature: with it off, `category` is NULL and nothing is excluded.
-CREDIT_CARD_PAYMENT_CATEGORY = "Credit card payment"
-SAME_PERSON_TRANSFER_PREFIX = (
-    "Same person transfer"  # also matches "... - PIX", "... - TED"
-)
 
 
 def join_owner(stmt: Select) -> Select:
@@ -46,11 +39,4 @@ def apply_filters(stmt: Select, filters: TransactionFilters) -> Select:
         stmt = stmt.where(func.abs(Transactions.amount) >= filters.min_amount)
     if filters.max_amount is not None:
         stmt = stmt.where(func.abs(Transactions.amount) <= filters.max_amount)
-    if filters.exclude_internal:
-        internal = or_(
-            Transactions.category == CREDIT_CARD_PAYMENT_CATEGORY,
-            Transactions.category.like(f"{SAME_PERSON_TRANSFER_PREFIX}%"),
-        )
-        # A NULL category makes `NOT internal` NULL, which would drop the row: keep it explicitly
-        stmt = stmt.where(or_(Transactions.category.is_(None), ~internal))
     return stmt

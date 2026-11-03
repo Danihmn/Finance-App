@@ -38,9 +38,6 @@ class TransactionFilters:
     search: str | None = None  # case-insensitive, inside the description
     min_amount: decimal.Decimal | None = None  # compared with abs(amount)
     max_amount: decimal.Decimal | None = None
-    # Hides credit card bill payments and transfers between the user's own accounts. They
-    # move money, they are not spending, and counting them would double count the bill.
-    exclude_internal: bool = False
 
 
 @dataclass(slots=True)

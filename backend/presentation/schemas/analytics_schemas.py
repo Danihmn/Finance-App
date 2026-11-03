@@ -2,7 +2,7 @@ import datetime
 import decimal
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from domain.read_models import TransactionFilters
 from presentation.schemas.common_schemas import end_of_day_utc, start_of_day_utc
@@ -18,10 +18,6 @@ class SpendingSummaryQuery(BaseModel):
     date_from: datetime.date | None = None
     date_to: datetime.date | None = None
     include_pending: bool = False
-    exclude_internal: bool = Field(
-        default=True,
-        description="Ignore credit card bill payments and transfers between your own accounts",
-    )
 
     @model_validator(mode="after")
     def _check_dates(self) -> SpendingSummaryQuery:
@@ -36,7 +32,6 @@ class SpendingSummaryQuery(BaseModel):
             date_from=start_of_day_utc(self.date_from) if self.date_from else None,
             date_to=end_of_day_utc(self.date_to) if self.date_to else None,
             status=None if self.include_pending else "POSTED",
-            exclude_internal=self.exclude_internal,
         )
 
 

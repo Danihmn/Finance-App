@@ -33,7 +33,7 @@ def get_spending_summary(
     spent    = every DEBIT.
     received = CREDIT on BANK accounts only. A CREDIT on a card is a bill payment or a refund,
                not income.
-    Currencies are never mixed. Filters decide the period, the status and the exclusions.
+    Currencies are never mixed. Filters decide the period, the status, the user and the account.
     """
     amount = func.abs(Transactions.amount)
 

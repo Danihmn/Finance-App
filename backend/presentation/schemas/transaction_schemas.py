@@ -24,7 +24,6 @@ class TransactionQuery(BaseModel):
     search: str | None = Field(default=None, min_length=1, max_length=100)
     min_amount: decimal.Decimal | None = Field(default=None, ge=0)
     max_amount: decimal.Decimal | None = Field(default=None, ge=0)
-    exclude_internal: bool = False
     limit: int = Field(default=50, ge=1, le=200)
     offset: int = Field(default=0, ge=0)
 
@@ -52,7 +51,6 @@ class TransactionQuery(BaseModel):
             search=self.search,
             min_amount=self.min_amount,
             max_amount=self.max_amount,
-            exclude_internal=self.exclude_internal,
         )
 
 
