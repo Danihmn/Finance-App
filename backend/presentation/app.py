@@ -5,7 +5,14 @@ from fastapi.concurrency import run_in_threadpool
 
 from infra.jobs.webhook_registration import register_webhooks
 from presentation.exception_handlers import register_exception_handlers
-from presentation.routers import auth_router, pluggy_items_router, users_router
+from presentation.routers import (
+    analytics_router,
+    auth_router,
+    bank_accounts_router,
+    pluggy_items_router,
+    transactions_router,
+    users_router,
+)
 from presentation.webhooks.pluggy import item_webhooks
 
 
@@ -22,4 +29,7 @@ register_exception_handlers(app)
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
 app.include_router(pluggy_items_router.router)
+app.include_router(bank_accounts_router.router)
+app.include_router(transactions_router.router)
+app.include_router(analytics_router.router)
 app.include_router(item_webhooks.router)

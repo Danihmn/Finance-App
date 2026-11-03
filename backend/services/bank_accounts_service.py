@@ -4,6 +4,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from domain.entities import BankAccount
+from domain.read_models import BankAccountWithOwner
 from infra.repositories import bank_account_repository
 from services._mappers import to_entity, to_values
 from services.exceptions import translate_repository_errors
@@ -59,3 +60,32 @@ def update_bank_account_balance(
         session, account_id, balance
     )
     return to_entity(BankAccount, account)
+
+
+@translate_repository_errors
+def search_bank_accounts(
+    session: Session,
+    user_id: uuid.UUID | None = None,
+    account_type: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[BankAccountWithOwner]:
+    rows = bank_account_repository.search_bank_accounts(
+        session, user_id, account_type, limit, offset
+    )
+    return [
+        BankAccountWithOwner(account=to_entity(BankAccount, a), user_id=owner_id)
+        for a, owner_id in rows
+    ]
+
+
+@translate_repository_errors
+def get_bank_account_with_owner(
+    session: Session, account_id: uuid.UUID
+) -> BankAccountWithOwner:
+    account, owner_id = bank_account_repository.get_bank_account_with_owner(
+        session, account_id
+    )
+    return BankAccountWithOwner(
+        account=to_entity(BankAccount, account), user_id=owner_id
+    )
