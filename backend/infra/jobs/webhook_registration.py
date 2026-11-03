@@ -5,7 +5,7 @@ import httpx
 from infra.database.session import get_session
 from integrations.pluggy.exceptions.pluggy_exception_error import PluggyExceptionError
 from services.exceptions import ServiceError
-from services.pluggy_webhooks_service import ensure_item_updated_webhook
+from services.pluggy_webhooks_service import ensure_item_webhooks
 from services.users_service import list_users
 from settings import settings
 
@@ -32,7 +32,7 @@ def register_webhooks() -> None:
 
             for user in users:
                 try:
-                    ensure_item_updated_webhook(session, user, settings.public_base_url)
+                    ensure_item_webhooks(session, user, settings.public_base_url)
                     session.commit()
                 except ServiceError, PluggyExceptionError, httpx.HTTPError, ValueError:
                     # One user failing must not stop the others

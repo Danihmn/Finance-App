@@ -72,7 +72,7 @@ The API starts at `http://127.0.0.1:8000` and the interactive docs are at `http:
 
 ## Pluggy webhooks with ngrok
 
-Pluggy tells us an item's data was updated by calling a webhook. Since the API runs on your machine, ngrok exposes it publicly.
+Pluggy tells us when an item is created, updated or deleted by calling a webhook. Since the API runs on your machine, ngrok exposes it publicly.
 
 1. In the `.env`, set ngrok's static domain:
 
@@ -90,8 +90,16 @@ Pluggy tells us an item's data was updated by calling a webhook. Since the API r
 
 How it works:
 
-- At startup, the backend registers (or fixes) the `item/updated` webhook of every user in Pluggy, pointing to `PUBLIC_BASE_URL` + `/webhooks/pluggy/items/updated` (`infra/jobs/webhook_registration.py`).
-- Pluggy sends the `X-Webhook-Token` header with a per-user secret. Only its hash is stored in the database.
+- At startup (and when a user is created), the backend registers (or fixes) three webhooks of every user in Pluggy, pointing to `PUBLIC_BASE_URL` + the route of each event (`infra/jobs/webhook_registration.py`):
+
+  | Event | Route | What the backend does |
+  |---|---|---|
+  | `item/created` | `/webhooks/pluggy/items/created` | Saves the item in `pluggy_items` for the user that owns the webhook, then syncs. |
+  | `item/updated` | `/webhooks/pluggy/items/updated` | Syncs the user. An unknown item is saved first (covers a lost `item/created`). |
+  | `item/deleted` | `/webhooks/pluggy/items/deleted` | Sets `pluggy_items.deleted_at`. Accounts and transactions stay, but the item leaves the sync. |
+
+- Pluggy sends the `X-Webhook-Token` header with a per-user secret, shared by the three webhooks. Only its hash is stored in the database.
+- To add a bank you do not touch the database: connect it in Pluggy (Dashboard, application's Demo page, Connect Account, MeuPluggy). Each bank connected in Meu Pluggy is authorized separately, so a bank added later also needs this step.
 - The ngrok domain is static, so the URL does not change between runs. If you change the domain, update `PUBLIC_BASE_URL` and restart the API to register the webhook again.
 - The tunnel must be open when Pluggy updates the data. With it closed, ngrok answers `404 ERR_NGROK_3200` and Pluggy gives up after a few attempts.
 - ngrok's inspector, with the received requests, is at `http://127.0.0.1:4040`.
@@ -103,8 +111,8 @@ How it works:
 3. API up.
 4. ngrok up.
 5. Create a user and log in (`/docs`).
-6. Register the Pluggy item.
-7. Wait for the webhook. Meu Pluggy refreshes every 24 hours and does not allow a manual refresh.
+6. Connect a bank in Pluggy. The `item/created` webhook registers the item (`POST /pluggy-items` is only needed for items created while the API was down).
+7. Wait for the `item/updated` webhook. Meu Pluggy refreshes every 24 hours and does not allow a manual refresh.
 
 ## Structure
 

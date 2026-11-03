@@ -30,7 +30,9 @@ def get_user_by_pluggy_webhook_secret_hash(
 
 @translate_db_errors("users")
 def list_users(session: Session, limit: int = 10, offset: int = 0) -> list[Users]:
-    stmt = select(Users).order_by(Users.created_at, Users.id).limit(limit).offset(offset)
+    stmt = (
+        select(Users).order_by(Users.created_at, Users.id).limit(limit).offset(offset)
+    )
     return list(session.scalars(stmt).all())
 
 

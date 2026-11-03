@@ -76,6 +76,7 @@ class PluggyItems(Base):
     consent_expires_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     last_synced_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
     updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
     user: Mapped[Users] = relationship("Users", back_populates="pluggy_items")
     bank_accounts: Mapped[list[BankAccounts]] = relationship(

@@ -12,3 +12,4 @@ class PluggyItem:
     consent_expires_at: datetime.datetime | None = None
     last_synced_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+    deleted_at: datetime.datetime | None = None

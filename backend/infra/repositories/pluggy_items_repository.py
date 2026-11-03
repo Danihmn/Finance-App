@@ -31,6 +31,7 @@ def list_pluggy_items_by_user(
     stmt = (
         select(PluggyItems)
         .where(PluggyItems.user_id == user_id)
+        .where(PluggyItems.deleted_at.is_(None))
         .order_by(PluggyItems.created_at, PluggyItems.id)
     )
     return list(session.scalars(stmt).all())
@@ -42,6 +43,7 @@ def list_pluggy_items_expiring_before(
 ) -> list[PluggyItems]:
     stmt = (
         select(PluggyItems)
+        .where(PluggyItems.deleted_at.is_(None))
         .where(PluggyItems.consent_expires_at.is_not(None))
         .where(PluggyItems.consent_expires_at < limit_date)
         .order_by(PluggyItems.consent_expires_at, PluggyItems.id)
@@ -77,5 +79,16 @@ def update_pluggy_item_sync_info(
     item.last_synced_at = last_synced_at
     item.consent_expires_at = consent_expires_at
     item.updated_at = datetime.datetime.now(datetime.UTC)
+    session.flush()
+    return item
+
+
+@translate_db_errors("pluggy_items")
+def soft_delete_pluggy_item(session: Session, item_id: uuid.UUID) -> PluggyItems:
+    """Marks the item as deleted. Its accounts and transactions stay: the history is still needed"""
+    item = get_pluggy_item_by_id(session, item_id)
+    now = datetime.datetime.now(datetime.UTC)
+    item.deleted_at = now
+    item.updated_at = now
     session.flush()
     return item
