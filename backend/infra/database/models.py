@@ -346,6 +346,7 @@ class Transactions(Base):
     payment_data: Mapped[object | None] = mapped_column(JSONB)
     credit_card_metadata: Mapped[object | None] = mapped_column(JSONB)
     merchant: Mapped[object | None] = mapped_column(JSONB)
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
 
     bank_account: Mapped[BankAccounts] = relationship(
         "BankAccounts", back_populates="transactions"

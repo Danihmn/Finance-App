@@ -43,6 +43,7 @@ def list_transactions_by_provider_id(
         select(Transactions)
         .where(Transactions.bank_account_id == bank_account_id)
         .where(Transactions.provider_id == provider_id)
+        .where(Transactions.deleted_at.is_(None))
         .order_by(Transactions.date, Transactions.id)
     )
     return list(session.scalars(stmt).all())
@@ -57,7 +58,11 @@ def list_transactions_by_account(
     limit: int = 50,
     offset: int = 0,
 ) -> list[Transactions]:
-    stmt = select(Transactions).where(Transactions.bank_account_id == bank_account_id)
+    stmt = (
+        select(Transactions)
+        .where(Transactions.bank_account_id == bank_account_id)
+        .where(Transactions.deleted_at.is_(None))
+    )
     if date_from is not None:
         stmt = stmt.where(Transactions.date >= date_from)
     if date_to is not None:
@@ -73,15 +78,23 @@ def list_transactions_by_account(
 
 @translate_db_errors("transactions")
 def list_transactions_since(
-    session: Session, bank_account_id: uuid.UUID, date_from: datetime.datetime
+    session: Session,
+    bank_account_id: uuid.UUID,
+    date_from: datetime.datetime,
+    include_deleted: bool = False,
 ) -> list[Transactions]:
-    """Every transaction of the account with date >= date_from (no pagination)."""
+    """Every transaction of the account with date >= date_from (no pagination).
+
+    The sync passes include_deleted=True: it needs the deleted rows to bring back the ones that reappear.
+    """
     stmt = (
         select(Transactions)
         .where(Transactions.bank_account_id == bank_account_id)
         .where(Transactions.date >= date_from)
         .order_by(Transactions.date, Transactions.id)
     )
+    if not include_deleted:
+        stmt = stmt.where(Transactions.deleted_at.is_(None))
     return list(session.scalars(stmt).all())
 
 
@@ -123,3 +136,16 @@ def update_transactions(session: Session, values_list: list[dict[str, Any]]) -> 
         update(Transactions),
         [{**values, "updated_at": now} for values in values_list],
     )
+
+
+@translate_db_errors("transactions")
+def soft_delete_transactions(session: Session, ids: list[uuid.UUID]) -> None:
+    """Marks the transactions as deleted (they can come back: Pluggy may return them again)."""
+    now = datetime.datetime.now(datetime.UTC)
+    for start in range(0, len(ids), _UPSERT_CHUNK_SIZE):
+        chunk = ids[start : start + _UPSERT_CHUNK_SIZE]
+        session.execute(
+            update(Transactions)
+            .where(Transactions.id.in_(chunk))
+            .values(deleted_at=now, updated_at=now)
+        )

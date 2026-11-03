@@ -62,12 +62,20 @@ def upsert_transactions(
 
 @translate_repository_errors
 def list_transactions_since(
-    session: Session, bank_account_id: uuid.UUID, date_from: datetime.datetime
+    session: Session,
+    bank_account_id: uuid.UUID,
+    date_from: datetime.datetime,
+    include_deleted: bool = False,
 ) -> list[Transaction]:
     transactions = transactions_repository.list_transactions_since(
-        session, bank_account_id, date_from
+        session, bank_account_id, date_from, include_deleted
     )
     return [to_entity(Transaction, t) for t in transactions]
+
+
+@translate_repository_errors
+def mark_transactions_deleted(session: Session, ids: list[uuid.UUID]) -> None:
+    transactions_repository.soft_delete_transactions(session, ids)
 
 
 @translate_repository_errors

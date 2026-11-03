@@ -30,3 +30,4 @@ class Transaction:
     payment_data: Any | None = None
     credit_card_metadata: Any | None = None
     merchant: Any | None = None
+    deleted_at: datetime.datetime | None = None
