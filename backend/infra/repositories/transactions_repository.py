@@ -6,7 +6,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from infra.database.models import Transactions
+from domain.read_models import TransactionFilters
+from infra.database.models import PluggyItems, Transactions
+from infra.repositories._transaction_filters import apply_filters, join_owner
 from infra.repositories.exceptions import RecordNotFoundError, translate_db_errors
 
 # Columns never overwritten when the transaction already exists.
@@ -149,3 +151,42 @@ def soft_delete_transactions(session: Session, ids: list[uuid.UUID]) -> None:
             .where(Transactions.id.in_(chunk))
             .values(deleted_at=now, updated_at=now)
         )
+
+
+@translate_db_errors("transactions")
+def search_transactions(
+    session: Session,
+    filters: TransactionFilters,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[tuple[Transactions, uuid.UUID]]:
+    """Filtered page of transactions (newest first), each with the owner's user id."""
+    stmt = apply_filters(join_owner(select(Transactions, PluggyItems.user_id)), filters)
+    stmt = (
+        stmt.order_by(Transactions.date.desc(), Transactions.id)
+        .limit(limit)
+        .offset(offset)
+    )
+    return [(transaction, user_id) for transaction, user_id in session.execute(stmt)]
+
+
+@translate_db_errors("transactions")
+def count_transactions(session: Session, filters: TransactionFilters) -> int:
+    stmt = apply_filters(join_owner(select(func.count(Transactions.id))), filters)
+    return session.scalar(stmt) or 0
+
+
+@translate_db_errors("transactions")
+def get_transaction_with_owner(
+    session: Session, transaction_id: uuid.UUID
+) -> tuple[Transactions, uuid.UUID]:
+    """A transaction that was not soft deleted, with the owner's user id."""
+    stmt = (
+        join_owner(select(Transactions, PluggyItems.user_id))
+        .where(Transactions.id == transaction_id)
+        .where(Transactions.deleted_at.is_(None))
+    )
+    row = session.execute(stmt).one_or_none()
+    if row is None:
+        raise RecordNotFoundError("transactions", "get_transaction_with_owner")
+    return row[0], row[1]
