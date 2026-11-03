@@ -1,13 +1,13 @@
-"""Read-only shapes used by the query/analysis endpoints.
+"""Read-only shapes used by the query endpoints.
 
 They are not tables: they join a stored entity with its owner (the user of the Pluggy item),
-or hold the result of an aggregation.
+or hold the filters of a query.
 """
 
 import datetime
 import decimal
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from domain.entities import BankAccount, Transaction
 
@@ -38,35 +38,3 @@ class TransactionFilters:
     search: str | None = None  # case-insensitive, inside the description
     min_amount: decimal.Decimal | None = None  # compared with abs(amount)
     max_amount: decimal.Decimal | None = None
-
-
-@dataclass(slots=True)
-class CurrencyTotals:
-    currency_code: str
-    total_spent: decimal.Decimal
-    total_received: decimal.Decimal
-    transaction_count: int
-
-
-@dataclass(slots=True)
-class CategoryTotal:
-    currency_code: str
-    category: str | None
-    total_spent: decimal.Decimal
-    transaction_count: int
-
-
-@dataclass(slots=True)
-class UserTotal:
-    currency_code: str
-    user_id: uuid.UUID
-    first_name: str
-    total_spent: decimal.Decimal
-    transaction_count: int
-
-
-@dataclass(slots=True)
-class SpendingSummary:
-    totals: list[CurrencyTotals] = field(default_factory=list)
-    by_category: list[CategoryTotal] = field(default_factory=list)
-    by_user: list[UserTotal] = field(default_factory=list)
