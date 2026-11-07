@@ -4,11 +4,13 @@ import uuid
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKeyConstraint,
     Index,
     Numeric,
     PrimaryKeyConstraint,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -48,6 +50,12 @@ class Users(Base):
 
     pluggy_items: Mapped[list[PluggyItems]] = relationship(
         "PluggyItems", back_populates="user"
+    )
+    financial_entries: Mapped[list[FinancialEntries]] = relationship(
+        "FinancialEntries", back_populates="user"
+    )
+    recurrences: Mapped[list[Recurrences]] = relationship(
+        "Recurrences", back_populates="user"
     )
 
 
@@ -141,6 +149,9 @@ class BankAccounts(Base):
     )
     transactions: Mapped[list[Transactions]] = relationship(
         "Transactions", back_populates="bank_account"
+    )
+    financial_entries: Mapped[list[FinancialEntries]] = relationship(
+        "FinancialEntries", back_populates="bank_account"
     )
 
 
@@ -351,3 +362,183 @@ class Transactions(Base):
     bank_account: Mapped[BankAccounts] = relationship(
         "BankAccounts", back_populates="transactions"
     )
+    reconciliations: Mapped[list[Reconciliations]] = relationship(
+        "Reconciliations", back_populates="transaction"
+    )
+
+
+class FinancialEntries(Base):
+    __tablename__ = "financial_entries"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="financial_entries_amount_check"),
+        CheckConstraint(
+            "installment_number > 0", name="financial_entries_installment_number_check"
+        ),
+        CheckConstraint(
+            "installment_total >= installment_number",
+            name="financial_entries_installment_total_check",
+        ),
+        CheckConstraint(
+            "reference_month = date_trunc('month'::text, reference_month::timestamp with time zone)::date",
+            name="financial_entries_reference_month_check",
+        ),
+        CheckConstraint(
+            "status = ANY (ARRAY['PLANNED'::text, 'RECONCILED'::text, 'CANCELLED'::text])",
+            name="financial_entries_status_check",
+        ),
+        CheckConstraint(
+            "type = ANY (ARRAY['DEBIT'::text, 'CREDIT'::text])",
+            name="financial_entries_type_check",
+        ),
+        ForeignKeyConstraint(
+            ["bank_account_id"],
+            ["bank_accounts.id"],
+            ondelete="RESTRICT",
+            name="financial_entries_bank_account_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="RESTRICT",
+            name="financial_entries_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="financial_entries_pkey"),
+        Index(
+            "idx_financial_entries_bank_account_id",
+            "bank_account_id",
+            postgresql_where="(bank_account_id IS NOT NULL)",
+        ),
+        Index(
+            "idx_financial_entries_user_month",
+            "user_id",
+            "reference_month",
+            postgresql_where="(deleted_at IS NULL)",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[decimal.Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    currency_code: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default=text("'BRL'::character varying")
+    )
+    reference_month: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'PLANNED'::text")
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    bank_account_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    category: Mapped[str | None] = mapped_column(Text)
+    due_date: Mapped[datetime.date | None] = mapped_column(Date)
+    installment_number: Mapped[int | None] = mapped_column(SmallInteger)
+    installment_total: Mapped[int | None] = mapped_column(SmallInteger)
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+    bank_account: Mapped[BankAccounts | None] = relationship(
+        "BankAccounts", back_populates="financial_entries"
+    )
+    user: Mapped[Users] = relationship("Users", back_populates="financial_entries")
+    reconciliations: Mapped[list[Reconciliations]] = relationship(
+        "Reconciliations", back_populates="financial_entry"
+    )
+
+
+class Reconciliations(Base):
+    __tablename__ = "reconciliations"
+    __table_args__ = (
+        CheckConstraint(
+            "source = ANY (ARRAY['MANUAL'::text, 'AUTO'::text])",
+            name="reconciliations_source_check",
+        ),
+        ForeignKeyConstraint(
+            ["financial_entry_id"],
+            ["financial_entries.id"],
+            ondelete="RESTRICT",
+            name="reconciliations_financial_entry_id_fkey",
+        ),
+        ForeignKeyConstraint(
+            ["transaction_id"],
+            ["transactions.id"],
+            ondelete="RESTRICT",
+            name="reconciliations_transaction_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="reconciliations_pkey"),
+        Index(
+            "idx_reconciliations_transaction_id",
+            "transaction_id",
+            postgresql_where="(deleted_at IS NULL)",
+        ),
+        Index(
+            "uq_reconciliations_entry_transaction",
+            "financial_entry_id",
+            "transaction_id",
+            unique=True,
+            postgresql_where="(deleted_at IS NULL)",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    financial_entry_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    transaction_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    source: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default=text("'MANUAL'::text")
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+
+    financial_entry: Mapped[FinancialEntries] = relationship(
+        "FinancialEntries", back_populates="reconciliations"
+    )
+    transaction: Mapped[Transactions] = relationship(
+        "Transactions", back_populates="reconciliations"
+    )
+
+
+class Recurrences(Base):
+    __tablename__ = "recurrences"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="recurrences_amount_check"),
+        CheckConstraint(
+            "type = ANY (ARRAY['DEBIT'::text, 'CREDIT'::text])",
+            name="recurrences_type_check",
+        ),
+        ForeignKeyConstraint(
+            ["user_id"],
+            ["users.id"],
+            ondelete="SET NULL",
+            name="recurrences_user_id_fkey",
+        ),
+        PrimaryKeyConstraint("id", name="recurrences_pkey"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[decimal.Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    currency_code: Mapped[str] = mapped_column(
+        String(3), nullable=False, server_default=text("'BRL'::character varying")
+    )
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime(True), nullable=False, server_default=text("now()")
+    )
+    category: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(DateTime(True))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+
+    user: Mapped[Users | None] = relationship("Users", back_populates="recurrences")
